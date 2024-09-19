@@ -39,6 +39,7 @@ resource applicationInsight 'Microsoft.Insights/components@2020-02-02' = {
   }
   properties: {
     Application_Type: 'web'
+    DisableLocalAuth: true
   }
   kind: 'web'
 }
@@ -73,9 +74,13 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         ]
       }
       appSettings: [
-        {
+        { // although we use connection string here, no app can authenticate with instrumentation key since 'DisableLocalAuth' is true (see above)
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: applicationInsight.properties.ConnectionString
+        }
+        {
+          name: 'APPLICATIONINSIGHTS_AUTHENTICATION_STRING'
+          value: 'Authorization=AAD'
         }
         {
           name: 'AzureWebJobsStorage__accountName'
@@ -113,6 +118,19 @@ resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-
   scope: storageAccount
   properties: {
     roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', storageRoleDefinitionId)
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+var appInsightsRoleDefinitionId  = '3913510d-42f4-4e42-8a64-420c390055eb' //Monitoring Metrics Publisher role
+
+// Allow access from function app to app insights using a managed identity
+resource appInsightsRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+  name: guid(applicationInsight.id, appInsightsRoleDefinitionId)
+  scope: applicationInsight
+  properties: {
+    roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', appInsightsRoleDefinitionId)
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
   }

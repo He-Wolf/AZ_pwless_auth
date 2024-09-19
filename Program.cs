@@ -1,8 +1,9 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.ApplicationInsights.Extensibility;
+using Azure.Identity;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication()
@@ -10,6 +11,11 @@ var host = new HostBuilder()
     {
         services.AddApplicationInsightsTelemetryWorkerService();
         services.ConfigureFunctionsApplicationInsights();
+        services.Configure<TelemetryConfiguration>(config =>
+        {
+            var credential = new ManagedIdentityCredential();
+            config.SetAzureTokenCredential(credential);
+        });
         services.Configure<LoggerFilterOptions>(options =>
         {
             // The Application Insights SDK adds a default logging filter that instructs ILogger to capture only Warning and more severe logs. Application Insights requires an explicit override.
